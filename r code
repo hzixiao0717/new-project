@@ -1,0 +1,200 @@
+---
+title: "The relationship between  infection rate and lethality of Covid-19 virus"
+author: "Zixiao Hu"
+date: '2022-08-31'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.height = 3,
+	message = FALSE
+)
+library(tidyverse)
+source("../scripts/ggprob.R")
+
+###Working Directory was set inside a folder named 'final_project' which resides in the 'stat240' folder. The dataset 'twitch' is read in from a folder labeled 'data' which is also directly inside the 'stat240' folder. The functions 'ggprob.R' is read in from a folder labeled 'scripts' also directly inside the 'stat240' folder.
+
+###read in and modify data variable names
+covid = read_csv("us-counties.csv")
+
+```
+
+## Introduction:
+
+This sudden global spread of the virus has been going on for more than two years now, and it's not even close to ending. Since the year 2020, our lives have been turned upside down as a result. Counting cases is a lot of work and time consuming, especially when there are so many states in the U.S., each with many counties, and each county and state has different medical conditions that create additional disruptions and effects. I am grateful for this opportunity to have access to this valuable database and to be able to understand the trends and specific data for each county, state. I will try to clean up the data a little bit and analyze it a little bit to try to find out some clues and conclusions through my efforts.
+
+## Background:
+
+**Sources:**
+Dataset ^[https://www.kaggle.com/datasets/fireballbyedimyrnmom/us-counties-covid-19-dataset?resource=download], MyrnaMLF's source for compiling data (New York Times GITHUB source): ^[ https://raw.githubusercontent.com/nytimes/covid-19-data/master/us-counties.csv]
+
+The dataset we used for this project is downloaded from a kaggle post titled “US counties COVID 19 dataset” by fireballbyedimyrnmom. The data is from 2020-2022, This datasetcomes from "The New York Times" and it is  based on reports from each state and local health agencies, and was brought to Kaggle from their github by MyrnaMLF. The data begins with the first reported coronavirus case in Washington State on Jan. 21, 2020 and it is updated weekly.
+
+date: values are categorical, referencing the specific dates.
+
+County: values are the specific names of county in US.
+
+State: values are the specific names of states in US.
+
+Fips: values are the specific code for the counties in US.
+
+Cases: values are the specific numbers of the covid cases in that specific days
+
+Focus on counts, states, and cases, after grouping or filtering based on special time series such as daily, monthly, and yearly, comparing the changes in the number of cases, and the possible reasons for such changes.
+
+## Question
+
+
+Does more cases of infection in a state mean higher lethality?
+
+
+## Research
+
+```{r, echo=FALSE}
+# Cleaning data
+colSums(is.na(covid))
+covid_1 = covid %>% 
+  drop_na(fips,deaths)
+covid_1 = covid_1 %>% 
+  mutate("survives" = cases - deaths) %>% 
+  mutate("lethality" = deaths/cases)
+colSums(is.na(covid_1))
+summary(covid_1)
+covid_state = covid_1 %>% 
+  group_by(state) %>% 
+  summarise(cases = sum(cases),
+            deaths = sum(deaths)) %>%
+  mutate("survives" = cases - deaths) %>%
+  mutate("lethality" = deaths/cases)
+head(arrange(covid_state,desc(cases)))
+head(arrange(covid_state,desc(deaths)))
+head(arrange(covid_state,desc(lethality)))
+p1 = ggplot(covid_state)+
+  geom_bar(aes(x = reorder(state, -deaths),y = deaths, fill = cases),
+           stat = "identity",
+           width = 0.3)+
+  xlab("States")+
+  ylab("Death Covid cases in total") + 
+  ggtitle("Total Death Covid cases in total per States",
+          subtitle = "From Jan. 21, 2020 to May. 13, 2022") 
+p1
+p2 = ggplot(covid_state)+
+  geom_bar(aes(x = reorder(state,-lethality),y = lethality, fill = cases),
+            stat = "identity",
+            width = 0.3)+
+  xlab("State")+
+  ylab("Lethality") + 
+  ggtitle("Lethality per States") 
+p2
+```
+
+
+I first checked how many na's were in the data and dropped them, then I mutated three new columns: survives, survivor rate, and lethality. then I consolidated all the data, including all cases and deaths, on a state-by-state basis, and calculated a separate one for each state, lethality for each state and plotted it out.
+
+The graph above shows the total amount of cases and deaths cases for 53 states from Alabama to Wyoming. After reordering by the amount, I found that the top three states were always California, Texas and Florida. Then I took the lethality in order of size, and I found that the lethality of these three states was in the upper-middle range of all states, but not the highest. 
+
+These show that while population makes a big impact in how many people get covid , it is not the only factor involved. For example, California, Texas, and Florida had the top three cases in terms of number of infections, but the calculated lethality rates were not the highest, or even in the middle of the pack. This means that there are certain areas where people are susceptible to infection but have a low probability of dying.
+
+So does the relationship between the number of cases and lethality fit a linear relationship? I then made the following graph. I found that there was actually a roughly linear trend but not very pronounced.
+```{r}
+p3 = ggplot(covid_state,aes(x = cases,y = deaths, color = state))+
+  geom_point()+
+  geom_smooth(method = "lm") +
+  xlab("Cases")+
+  ylab("Death Covid cases in total") + 
+  ggtitle("Total Death Covid") 
+p3
+
+```
+
+After processing the data for each state, I'm going to focus on my state, Wisconsin. Break down the data to each county in Wisconsin. Trying to find similar linear relationships with the states from it.
+
+```{r}
+Wis_covid = covid %>% 
+  filter(state == "Wisconsin") %>%
+  filter(date == "2022-01-01") %>% 
+  group_by(date,county) %>% 
+  summarize(cases = sum(cases),
+            deaths = sum(deaths)) %>% 
+  mutate("survives" = cases - deaths) %>% 
+  mutate("lethality" = deaths / cases)
+Wis_covid
+Wis_covid_cases = tail(arrange(Wis_covid, cases), n = 50)
+Wis_covid_deaths = tail(arrange(Wis_covid, deaths), n = 50)
+Wis_covid_lethality = tail(arrange(Wis_covid, lethality), n = 50)
+p4 = ggplot(Wis_covid_cases) +
+  geom_col(mapping = aes(x = reorder(county, -cases),
+                         y = cases,
+                         fill = county), 
+           position = 'dodge') + 
+  xlab("County in Wisconsin") +
+  ylab("Cases on ") +
+  ggtitle("Top 50 Counties for Cases")
+p4
+p5 = ggplot(Wis_covid_deaths) +
+  geom_col(mapping = aes(x = reorder(county, -deaths),
+                         y = deaths,
+                         fill = county), 
+           position = 'dodge') + 
+  xlab("County in Wisconsin") +
+  ylab("Death Cases ") +
+  ggtitle("Top 50 Counties for  Death Cases")
+p5
+p6 = ggplot(Wis_covid_lethality) +
+  geom_col(mapping = aes(x = reorder(county, -lethality),
+                         y = lethality,
+                         fill = county), 
+           position = 'dodge') + 
+  xlab("County in Wisconsin") +
+  ylab("Lethality") +
+  ggtitle("Top 50 Counties for Lethality")
+p6
+p7 = ggplot(Wis_covid_cases) +
+  geom_point(mapping = aes(x = cases, y = deaths, color = county)) +
+  xlab("Cases") +
+  ylab("Deaths") +
+  ggtitle("County Cases and Deaths")
+p7
+sizes <- function(cases) if (cases <= 5000) {
+    "lowest"
+} else if (cases > 5000 & cases <= 1000) {
+    "low"
+} else if (cases > 1000 & cases <= 10000) {
+    "medium"
+} else if (cases > 10000 & cases <= 50000) {
+    "big"
+} else if (cases > 50000) {
+    "outliers"
+} else {
+    "biggest"
+}
+Wis_covid_cases["size"] = mapply(sizes, Wis_covid_cases$cases)
+Wis_covid_cases$reorder = factor(Wis_covid_cases$size, levels = c("lowest","low","medium","big","outliers","biggest"))
+p8 = ggplot(Wis_covid_cases) +
+  geom_point(aes(x = cases, y = deaths, color = county)) + 
+  facet_wrap(~reorder, scales = 'free') +
+  xlab("Cases") +
+  ylab("Deaths") +
+  ggtitle("County Cases and Deaths by Category")
+p8
+```
+I
+
+## Discussion:
+
+
+**Summary of findings:**
+
+This database is still under continuous expansion. The main difficulty so far has been cleaning and analyzing the research data efficiently. With my feeble cleanup, the data looks slightly neater. Inconsistencies in the data and corrections or changes to the data have resulted in unlikely numbers and fluctuations that may not represent actual trends and fluctuations in Covid. Cases can vary considerably between the beginning and end of the year, and to some extent it is possible that the number of deaths depends heavily on the number of cases, but there are still many small influences such as medical differences that may still exist between locations.
+
+
+
+
+**Potential short-comings of our analysis/Opportunities for future improvements:**
+
+
+My study focuses on states and counties, and I identified the states mainly in Wisconsin, where I am located, and if possible, I can do a similar study for each state and select the top 50 counties. The other point is that my study is for a specific number of days, and in the future we can continue to study the trend of the overall cases over such a long period of time, or the overall change. By comparing the overall trend with the trend of each state and even the top 50 counties, we can see if factors like geographic location have a big impact on the trend.
+
+There are many things that are not so good in my study, one of the more obvious is that the form of the table seems very single and the notes are a bit too much, but the image will look small.
