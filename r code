@@ -14,9 +14,7 @@ knitr::opts_chunk$set(
 library(tidyverse)
 source("../scripts/ggprob.R")
 
-###Working Directory was set inside a folder named 'final_project' which resides in the 'stat240' folder. The dataset 'twitch' is read in from a folder labeled 'data' which is also directly inside the 'stat240' folder. The functions 'ggprob.R' is read in from a folder labeled 'scripts' also directly inside the 'stat240' folder.
 
-###read in and modify data variable names
 covid = read_csv("us-counties.csv")
 
 ```
